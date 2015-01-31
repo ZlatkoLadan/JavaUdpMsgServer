@@ -1,4 +1,4 @@
-package com.zlatko.ladan.udp.msg.server;
+package com.zlatko.ladan.udp.msg.client;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

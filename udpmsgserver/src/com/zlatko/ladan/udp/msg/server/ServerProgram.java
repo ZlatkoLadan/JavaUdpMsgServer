@@ -1,4 +1,4 @@
-package com.zlatko.ladan.udp.msg.client;
+package com.zlatko.ladan.udp.msg.server;
 
 import java.io.IOException;
 import java.net.SocketException;
@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class ServerProgram {
-	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_]{3,20};";
+	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_\\-]{3,20};";
 	private static final List<User> m_users = Collections
 			.synchronizedList(new ArrayList<User>());
 

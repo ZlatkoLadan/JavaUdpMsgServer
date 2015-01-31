@@ -1,5 +1,6 @@
-package com.zlatko.ladan.udp.msg.server;
+package com.zlatko.ladan.udp.msg.client;
 
+import java.awt.Dimension;
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
@@ -17,9 +18,9 @@ import javax.swing.JTextPane;
 import javax.swing.JTextField;
 
 public class WindowMain {
-
-	private JFrame m_frame;
-	private JTextField m_textFieldInput;
+	private JFrame m_frame = null;
+	private JTextField m_textFieldInput = null;
+	private StringBuilder m_msgsText = new StringBuilder();
 
 	/**
 	 * Launch the application.
@@ -49,15 +50,19 @@ public class WindowMain {
 	 */
 	private void initialize() {
 		final UDPclient udpClient = new UDPclient();
+		JButton btnOk = new JButton("OK");
+		final JTextPane textPaneInput = new JTextPane();
 		m_frame = new JFrame();
+
+		textPaneInput.setEditable(false);
+
+		m_frame.setTitle("UDP Messaging Client");
 		m_frame.setBounds(100, 100, 450, 300);
+		m_frame.setMinimumSize(new Dimension(450, 300));
+		m_frame.getRootPane().setDefaultButton(btnOk);
+		m_frame.getContentPane().add(textPaneInput, BorderLayout.CENTER);
 		m_frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		final JTextPane textPaneInput = new JTextPane();
-		textPaneInput.setEditable(false);
-		m_frame.getContentPane().add(textPaneInput, BorderLayout.CENTER);
-
-		JButton btnOk = new JButton("OK");
 		btnOk.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent a_arg) {
 				try {
@@ -85,7 +90,7 @@ public class WindowMain {
 		}
 
 		try {
-			udpClient.Send(String.format("CONN:JEW%d;",
+			udpClient.Send(String.format("CONN:JUICE-%d;",
 					(int) (100d + Math.random() * 101d)));
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -126,12 +131,12 @@ public class WindowMain {
 						}
 						continue;
 					}
-					final String data = serverData;
+					final String data = String.format("%s\n", serverData);
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
-							textPaneInput.setText(textPaneInput.getText()
-									+ "\n" + data);
+							m_msgsText.append(data);
+							textPaneInput.setText(m_msgsText.toString());
 						}
 					});
 				}

@@ -1,4 +1,4 @@
-package com.zlatko.ladan.udp.msg.client;
+package com.zlatko.ladan.udp.msg.server;
 
 import java.net.InetAddress;
 
