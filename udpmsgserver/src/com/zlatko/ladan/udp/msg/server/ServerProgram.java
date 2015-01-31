@@ -98,7 +98,6 @@ public class ServerProgram {
 			user = getUser(clientData);
 
 			if (user == null) {
-				System.out.println(REGEX_CONNECT);
 				if (clientData.getData().matches(REGEX_CONNECT)) {
 					String userName = clientData.getData().substring(5,
 							clientData.getData().length() - 1);
@@ -161,10 +160,20 @@ public class ServerProgram {
 				}
 			}
 
-			System.out.printf(Locale.ENGLISH, "client data: \"%s\"%n",
-					clientData.getData());
+			if (!clientData.getData().matches(
+					"MSG:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};")) {
+				System.out.printf(Locale.ENGLISH,
+						"user %s tried to send \"%s\"!", user.toString(),
+						clientData.getData());
+				continue;
+			}
+
+			System.out.printf(Locale.ENGLISH, "user %s, sent msg: \"%s\"%n",
+					user.toString(), clientData.getData());
 			user.updateLastResponse();
 			try {
+				clientData.setData(String.format(Locale.ENGLISH, "MSG:%s:%s",
+						user.getUserName(), clientData.getData().substring(4)));
 				synchronized (m_users) {
 					for (int i = 0; i < m_users.size(); ++i) {
 						user = m_users.get(i);
@@ -176,6 +185,7 @@ public class ServerProgram {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
+
 		}
 		udpServer.close();
 	}

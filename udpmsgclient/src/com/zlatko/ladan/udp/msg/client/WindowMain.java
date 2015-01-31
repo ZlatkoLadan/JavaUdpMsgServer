@@ -5,6 +5,7 @@ import java.awt.EventQueue;
 
 import javax.swing.JFrame;
 import javax.swing.JButton;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 
 import java.awt.BorderLayout;
@@ -16,6 +17,7 @@ import java.net.UnknownHostException;
 
 import javax.swing.JTextPane;
 import javax.swing.JTextField;
+import javax.swing.JScrollBar;
 
 public class WindowMain {
 	private JFrame m_frame = null;
@@ -51,22 +53,24 @@ public class WindowMain {
 	private void initialize() {
 		final UDPclient udpClient = new UDPclient();
 		JButton btnOk = new JButton("OK");
-		final JTextPane textPaneInput = new JTextPane();
+		final JTextPane textPaneOutput = new JTextPane();
+		JScrollPane jScrollPane = new JScrollPane(textPaneOutput);
 		m_frame = new JFrame();
 
-		textPaneInput.setEditable(false);
+		textPaneOutput.setEditable(false);
 
 		m_frame.setTitle("UDP Messaging Client");
 		m_frame.setBounds(100, 100, 450, 300);
 		m_frame.setMinimumSize(new Dimension(450, 300));
 		m_frame.getRootPane().setDefaultButton(btnOk);
-		m_frame.getContentPane().add(textPaneInput, BorderLayout.CENTER);
+		m_frame.getContentPane().add(jScrollPane, BorderLayout.CENTER);
 		m_frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 		btnOk.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent a_arg) {
 				try {
-					udpClient.Send(m_textFieldInput.getText());
+					udpClient.Send(String.format("MSG:%s;",
+							m_textFieldInput.getText()));
 				} catch (IOException e) {
 					e.printStackTrace();
 					System.exit(1);
@@ -90,8 +94,8 @@ public class WindowMain {
 		}
 
 		try {
-			udpClient.Send(String.format("CONN:JUICE-%d;",
-					(int) (100d + Math.random() * 101d)));
+			udpClient.Send(String.format("CONN:JUICE-%x;",
+					(int) (1000d + Math.random() * 1001d)));
 		} catch (IOException e) {
 			e.printStackTrace();
 			System.exit(1);
@@ -114,7 +118,7 @@ public class WindowMain {
 			@Override
 			public void run() {
 				String serverData = null;
-
+				String[] msgData = null;
 				while (true) {
 					try {
 						serverData = udpClient.Receive();
@@ -131,12 +135,21 @@ public class WindowMain {
 						}
 						continue;
 					}
-					final String data = String.format("%s\n", serverData);
+					System.out.println(serverData);
+					if (!serverData
+							.matches("MSG:[A-Z0-9a-z.,_\\-]{3,20}:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};")) {
+						continue;
+					}
+					msgData = serverData.substring(4).split(":", 2);
+
+					final String data = String.format("%s wrote:%n%s\n",
+							msgData[0],
+							msgData[1].substring(0, msgData[1].length() - 1));
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 							m_msgsText.append(data);
-							textPaneInput.setText(m_msgsText.toString());
+							textPaneOutput.setText(m_msgsText.toString());
 						}
 					});
 				}
