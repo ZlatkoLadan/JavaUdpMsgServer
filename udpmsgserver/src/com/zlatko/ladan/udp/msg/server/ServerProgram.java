@@ -8,7 +8,14 @@ import java.util.List;
 import java.util.Locale;
 
 public class ServerProgram {
+	private static final String REGEX_MESSAGE = "MSG:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};";
 	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_\\-]{3,20};";
+
+	private static final String OK = "OK;";
+	private static final String NOT_OK = "NOK;";
+	private static final String HEARTBEAT = "1;";
+	private static final String USER_DISCONNECTED = "DISC;";
+
 	private static final List<User> m_users = Collections
 			.synchronizedList(new ArrayList<User>());
 
@@ -74,8 +81,8 @@ public class ServerProgram {
 								--i;
 								continue;
 							}
-							userData = new UdpData("1;", lUser.getIpAddress(),
-									lUser.getPort());
+							userData = new UdpData(HEARTBEAT, lUser
+									.getIpAddress(), lUser.getPort());
 							try {
 								udpServer.send(userData);
 							} catch (IOException e) {
@@ -107,7 +114,7 @@ public class ServerProgram {
 										"Client (%s:%d) tried to login, name \"%s\" was taken!%n",
 										clientData.getIpAddress().toString(),
 										clientData.getPort(), userName);
-						clientData.setData("NOK;");
+						clientData.setData(NOT_OK);
 						try {
 							udpServer.send(clientData);
 						} catch (IOException e) {
@@ -122,7 +129,7 @@ public class ServerProgram {
 					synchronized (m_users) {
 						m_users.add(user);
 					}
-					clientData.setData("OK;");
+					clientData.setData(OK);
 					try {
 						udpServer.send(clientData);
 					} catch (IOException e) {
@@ -138,7 +145,7 @@ public class ServerProgram {
 				}
 				continue;
 			}
-			if (clientData.getData().equals("1;")) {
+			if (clientData.getData().equals(HEARTBEAT)) {
 				try {
 					udpServer.send(clientData);
 					user.updateLastResponse();
@@ -147,7 +154,7 @@ public class ServerProgram {
 				}
 				continue;
 			}
-			if (clientData.getData().equals("DISC;")) {
+			if (clientData.getData().equals(USER_DISCONNECTED)) {
 				synchronized (m_users) {
 					for (int i = 0; i < m_users.size(); ++i) {
 						if (user.equals(m_users.get(i))) {
@@ -160,8 +167,7 @@ public class ServerProgram {
 				}
 			}
 
-			if (!clientData.getData().matches(
-					"MSG:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};")) {
+			if (!clientData.getData().matches(REGEX_MESSAGE)) {
 				System.out.printf(Locale.ENGLISH,
 						"user %s tried to send \"%s\"!", user.toString(),
 						clientData.getData());

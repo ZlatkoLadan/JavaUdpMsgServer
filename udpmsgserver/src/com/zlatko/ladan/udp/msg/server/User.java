@@ -30,11 +30,11 @@ public class User {
 	public int getPort() {
 		return m_port;
 	}
-	
+
 	public void updateLastResponse() {
 		m_lastResponse = System.currentTimeMillis();
 	}
-	
+
 	public long getLastResponse() {
 		return m_lastResponse;
 	}

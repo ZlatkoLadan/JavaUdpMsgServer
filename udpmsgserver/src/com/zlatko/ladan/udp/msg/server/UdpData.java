@@ -16,7 +16,7 @@ public class UdpData {
 	public String getData() {
 		return m_data;
 	}
-	
+
 	public void setData(String a_data) {
 		m_data = a_data;
 	}
