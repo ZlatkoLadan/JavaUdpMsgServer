@@ -1,0 +1,182 @@
+package com.zlatko.ladan.udp.msg.client;
+
+import java.io.IOException;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+
+public class ServerProgram {
+	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_]{3,20};";
+	private static final List<User> m_users = Collections
+			.synchronizedList(new ArrayList<User>());
+
+	private static User getUser(UdpData a_data) {
+		User user = null;
+		synchronized (m_users) {
+			for (int i = 0; i < m_users.size(); ++i) {
+				user = m_users.get(i);
+
+				if (a_data.getIpAddress().equals(user.m_ipAddress)
+						&& a_data.getPort() == user.getPort()) {
+					return user;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static boolean userLoggedIn(String a_userName) {
+		synchronized (m_users) {
+			for (User user : m_users) {
+				if (a_userName.equals(user.getUserName())) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	public static void main(String[] a_args) {
+		final UDPserver udpServer = new UDPserver();
+		UdpData clientData = null;
+		User user = null;
+		try {
+			udpServer.connect(1616);
+		} catch (SocketException e) {
+			e.printStackTrace();
+			return;
+		}
+		System.out.println("Connected");
+
+		(new Thread(new Runnable() {
+			@Override
+			public void run() {
+				UdpData userData = null;
+				User lUser = null;
+				while (true) {
+					try {
+						Thread.sleep(10000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+
+					synchronized (m_users) {
+						for (int i = 0; i < m_users.size(); ++i) {
+							lUser = m_users.get(i);
+							if (lUser.getLastResponse() < System
+									.currentTimeMillis() - 30000l) {
+								System.out.printf(Locale.ENGLISH,
+										"Removed user %s due to inactivity!%n",
+										lUser.toString());
+								m_users.remove(i);
+								--i;
+								continue;
+							}
+							userData = new UdpData("1;", lUser.getIpAddress(),
+									lUser.getPort());
+							try {
+								udpServer.send(userData);
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
+					}
+				}
+			}
+		})).start();
+
+		while (true) {
+			try {
+				clientData = udpServer.receive();
+			} catch (IOException e) {
+				e.printStackTrace();
+				break;
+			}
+
+			user = getUser(clientData);
+
+			if (user == null) {
+				System.out.println(REGEX_CONNECT);
+				if (clientData.getData().matches(REGEX_CONNECT)) {
+					String userName = clientData.getData().substring(5,
+							clientData.getData().length() - 1);
+					if (userLoggedIn(userName)) {
+						System.out
+								.printf(Locale.ENGLISH,
+										"Client (%s:%d) tried to login, name \"%s\" was taken!%n",
+										clientData.getIpAddress().toString(),
+										clientData.getPort(), userName);
+						clientData.setData("NOK;");
+						try {
+							udpServer.send(clientData);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						continue;
+					}
+
+					user = new User(userName, clientData.getIpAddress(),
+							clientData.getPort());
+					user.updateLastResponse();
+					synchronized (m_users) {
+						m_users.add(user);
+					}
+					clientData.setData("OK;");
+					try {
+						udpServer.send(clientData);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					System.out.printf(Locale.ENGLISH, "User added: %s!%n",
+							user.toString());
+				} else {
+					System.out.printf(Locale.ENGLISH,
+							"Client (%s:%d) tried to send message: \"%s\"!%n",
+							clientData.getIpAddress().toString(),
+							clientData.getPort(), clientData.getData());
+				}
+				continue;
+			}
+			if (clientData.getData().equals("1;")) {
+				try {
+					udpServer.send(clientData);
+					user.updateLastResponse();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				continue;
+			}
+			if (clientData.getData().equals("DISC;")) {
+				synchronized (m_users) {
+					for (int i = 0; i < m_users.size(); ++i) {
+						if (user.equals(m_users.get(i))) {
+							System.out.printf(Locale.ENGLISH,
+									"Client %s disconnected!%n", user);
+							m_users.remove(i);
+						}
+					}
+					continue;
+				}
+			}
+
+			System.out.printf(Locale.ENGLISH, "client data: \"%s\"%n",
+					clientData.getData());
+			user.updateLastResponse();
+			try {
+				synchronized (m_users) {
+					for (int i = 0; i < m_users.size(); ++i) {
+						user = m_users.get(i);
+						clientData.setIpAddress(user.getIpAddress());
+						clientData.setPort(user.getPort());
+						udpServer.send(clientData);
+					}
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		udpServer.close();
+	}
+}
