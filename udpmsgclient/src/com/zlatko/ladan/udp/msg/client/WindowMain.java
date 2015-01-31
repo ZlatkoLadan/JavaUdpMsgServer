@@ -197,7 +197,7 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 					msgData = serverData.substring(4).split(MESSAGE_SEPARATOR,
 							2);
 
-					final String data = String.format("%s wrote:%n%s\n",
+					final String data = String.format("%s wrote:%n%s%n",
 							msgData[0].equals(userName) ? "You" : msgData[0],
 							msgData[1].substring(0, msgData[1].length() - 1));
 					SwingUtilities.invokeLater(new Runnable() {
