@@ -3,12 +3,23 @@ package com.zlatko.ladan.udp.msg.server;
 import java.net.InetAddress;
 import java.util.Locale;
 
+//TODO: Add more to comments
 public class User {
 	private String m_userName = null;
 	InetAddress m_ipAddress = null;
 	private int m_port = 0;
 	private long m_lastResponse = 0l;
 
+	/**
+	 * The user class constructor.
+	 *
+	 * @param a_userName
+	 *            The user's name
+	 * @param a_ipAddress
+	 *            The user's IP address
+	 * @param a_port
+	 *            The user's port
+	 */
 	public User(String a_userName, InetAddress a_ipAddress, int a_port) {
 		setUserName(a_userName);
 		m_ipAddress = a_ipAddress;

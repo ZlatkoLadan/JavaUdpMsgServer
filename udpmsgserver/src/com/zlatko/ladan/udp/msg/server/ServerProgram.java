@@ -19,6 +19,15 @@ public class ServerProgram {
 	private static final List<User> m_users = Collections
 			.synchronizedList(new ArrayList<User>());
 
+	private static UDPserver m_udpServer = null;
+
+	/**
+	 * Gets the user.
+	 *
+	 * @param a_data
+	 *            the data sent by the client.
+	 * @return the user or null if the client is not logged in
+	 */
 	private static User getUser(UdpData a_data) {
 		User user = null;
 		synchronized (m_users) {
@@ -34,6 +43,13 @@ public class ServerProgram {
 		return null;
 	}
 
+	/**
+	 * Check whether someone with the specified user name is already logged in.
+	 *
+	 * @param a_userName
+	 *            the user name
+	 * @return If someone is logged in with that name
+	 */
 	private static boolean userLoggedIn(String a_userName) {
 		synchronized (m_users) {
 			for (User user : m_users) {
@@ -45,58 +61,38 @@ public class ServerProgram {
 		return false;
 	}
 
+	/**
+	 * This is where everything starts.
+	 *
+	 * @param a_args
+	 *            The arguments sent by console user.
+	 */
 	public static void main(String[] a_args) {
-		final UDPserver udpServer = new UDPserver();
-		UdpData clientData = null;
-		User user = null;
+		m_udpServer = new UDPserver();
 		try {
-			udpServer.connect(1616);
+			m_udpServer.connect(1616);
 		} catch (SocketException e) {
 			e.printStackTrace();
 			return;
 		}
 		System.out.println("Connected");
 
-		(new Thread(new Runnable() {
-			@Override
-			public void run() {
-				UdpData userData = null;
-				User lUser = null;
-				while (true) {
-					try {
-						Thread.sleep(10000);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
+		doHeartBeat(m_udpServer);
 
-					synchronized (m_users) {
-						for (int i = 0; i < m_users.size(); ++i) {
-							lUser = m_users.get(i);
-							if (lUser.getLastResponse() < System
-									.currentTimeMillis() - 30000l) {
-								System.out.printf(Locale.ENGLISH,
-										"Removed user %s due to inactivity!%n",
-										lUser.toString());
-								m_users.remove(i);
-								--i;
-								continue;
-							}
-							userData = new UdpData(HEARTBEAT, lUser
-									.getIpAddress(), lUser.getPort());
-							try {
-								udpServer.send(userData);
-							} catch (IOException e) {
-								e.printStackTrace();
-							}
-						}
-					}
-				}
-			}
-		})).start();
+		update();
+		m_udpServer.close();
+	}
+
+	/**
+	 * The update method which runs the updates for the server.
+	 */
+	private static void update() {
+		UdpData clientData = null;
+		User user = null;
 
 		while (true) {
 			try {
-				clientData = udpServer.receive();
+				clientData = m_udpServer.receive();
 			} catch (IOException e) {
 				e.printStackTrace();
 				break;
@@ -116,7 +112,7 @@ public class ServerProgram {
 										clientData.getPort(), userName);
 						clientData.setData(NOT_OK);
 						try {
-							udpServer.send(clientData);
+							m_udpServer.send(clientData);
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -131,7 +127,7 @@ public class ServerProgram {
 					}
 					clientData.setData(OK);
 					try {
-						udpServer.send(clientData);
+						m_udpServer.send(clientData);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -147,7 +143,7 @@ public class ServerProgram {
 			}
 			if (clientData.getData().equals(HEARTBEAT)) {
 				try {
-					udpServer.send(clientData);
+					m_udpServer.send(clientData);
 					user.updateLastResponse();
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -185,14 +181,57 @@ public class ServerProgram {
 						user = m_users.get(i);
 						clientData.setIpAddress(user.getIpAddress());
 						clientData.setPort(user.getPort());
-						udpServer.send(clientData);
+						m_udpServer.send(clientData);
 					}
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-
 		}
-		udpServer.close();
+	}
+
+	/**
+	 * Heart beats to the users. This method starts a thread.
+	 *
+	 * @param a_udpServer
+	 *            the server class to send with.
+	 */
+	private static void doHeartBeat(final UDPserver a_udpServer) {
+		(new Thread(new Runnable() {
+			@Override
+			public void run() {
+				UdpData userData = null;
+				User lUser = null;
+				while (true) {
+					try {
+						Thread.sleep(10000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+
+					synchronized (m_users) {
+						for (int i = 0; i < m_users.size(); ++i) {
+							lUser = m_users.get(i);
+							if (lUser.getLastResponse() < System
+									.currentTimeMillis() - 30000l) {
+								System.out.printf(Locale.ENGLISH,
+										"Removed user %s due to inactivity!%n",
+										lUser.toString());
+								m_users.remove(i);
+								--i;
+								continue;
+							}
+							userData = new UdpData(HEARTBEAT, lUser
+									.getIpAddress(), lUser.getPort());
+							try {
+								a_udpServer.send(userData);
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}
+					}
+				}
+			}
+		})).start();
 	}
 }

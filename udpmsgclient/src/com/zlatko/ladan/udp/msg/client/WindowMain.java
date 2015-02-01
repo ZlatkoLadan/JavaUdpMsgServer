@@ -66,11 +66,20 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 		InitUdp();
 	}
 
+	/**
+	 * Event which is called by WindowListener
+	 */
 	@Override
 	public void windowOpened(WindowEvent a_e) {
 		m_textFieldInput.requestFocusInWindow();
 	}
 
+	/**
+	 * Event which is called by Action listener.
+	 *
+	 * @param a_e
+	 *            The event
+	 */
 	public void actionPerformed(ActionEvent a_e) {
 		if (a_e.getSource() == m_buttonOk) {
 			try {
@@ -160,7 +169,8 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	}
 
 	/**
-	 * Starts the messaging update which fetches messages
+	 * Starts the messaging update which fetches messages. This method starts a
+	 * thread.
 	 *
 	 * @param udpClient
 	 *            The UDP client
