@@ -33,11 +33,12 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		OnDialogButtonPress {
 	private static final String REGEX_MESSAGE = "MSG:[A-Z0-9a-z.,_\\-]{3,20}:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};";
 
-	private static final String MESSAGE_CONNECTION_FAILED = "Noo, couldn't connect, bye!";
 	private static final String WINDOW_TITLE = "UDP Messaging Client";
+	private static final String MESSAGE_CONNECTION_FAILED = "Noo, couldn't connect, bye!";
 	private static final String MESSAGE_SEPARATOR = ":";
 	private static final String LOGIN_OK = "OK;";
 	private static final String HEARTBEAT = "1;";
+	private static final String DISCONNECT = "DISC;";
 
 	private UDPclient m_udpClient = null;
 
@@ -61,7 +62,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 			public void run() {
 				try {
 					WindowMain window = new WindowMain();
-					dialog.addWindowListener(window);
+					dialog.setOnDiaLogPressEvent(window);
 					dialog.setVisible(true);
 					// window.m_frame.setVisible(true);
 				} catch (Exception e) {
@@ -79,13 +80,18 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	}
 
 	private void setIsConnected(boolean a_isConnected) {
+		setIsConnected(a_isConnected, false);
+	}
+
+	private void setIsConnected(boolean a_isConnected, boolean a_isClosing) {
 		synchronized (m_lock) {
 			m_isConnected = a_isConnected;
 		}
 		// TODO: FIX THIS ONE SO THAT IT IS NICER, NICEIFY. DIALOG OR SOMETHING
-		if (a_isConnected) {
+		if (a_isConnected || a_isClosing) {
 			return;
 		}
+		m_udpClient.close();
 		m_frame.dispose();
 	}
 
@@ -100,17 +106,22 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 */
 	@Override
 	public void windowOpened(WindowEvent a_e) {
-		if ((a_e.getComponent() instanceof LoginDialog)) {
-			LoginDialog dialog = (LoginDialog) a_e.getSource();
-			dialog.setOnDiaLogPressEvent(this);
-			return;
-		}
 		m_textFieldInput.requestFocusInWindow();
 	}
 
 	@Override
-	public void windowClosed(WindowEvent a_e) {
-		super.windowClosed(a_e);
+	public void windowClosing(WindowEvent a_e) {
+		if (getIsConnected()) {
+			try {
+				m_udpClient.Send(DISCONNECT);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+			setIsConnected(false, true);
+		}
+
+		super.windowClosing(a_e);
 	}
 
 	/**
@@ -225,7 +236,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 *            The user name
 	 */
 	private void messageUpdate(final UDPclient udpClient, final String userName) {
-		new Thread(new Runnable() {
+		(new Thread(new Runnable() {
 			@Override
 			public void run() {
 				String serverData = null;
@@ -240,6 +251,11 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 						setIsConnected(false);
 						return;
 					}
+
+					if (!getIsConnected()) {
+						return;
+					}
+
 					if (serverData.equals(HEARTBEAT)) {
 						try {
 							udpClient.Send(HEARTBEAT);
@@ -267,7 +283,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 					});
 				}
 			}
-		}).start();
+		})).start();
 	}
 
 	@Override
@@ -276,7 +292,8 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 			return true;
 		}
 
-		if (a_e.getEventData() == null || a_e.getEventData().length() < 1
+		if (a_e.getEventData() == null
+				|| !a_e.getEventData().matches("[A-Z0-9a-z.,_\\-]{3,20}")
 				|| !InitUdp(a_e.getEventData())) {
 			return false;
 		}

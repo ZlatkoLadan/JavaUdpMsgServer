@@ -165,7 +165,7 @@ public class ServerProgram {
 
 			if (!clientData.getData().matches(REGEX_MESSAGE)) {
 				System.out.printf(Locale.ENGLISH,
-						"user %s tried to send \"%s\"!", user.toString(),
+						"user %s tried to send \"%s\"!%n", user.toString(),
 						clientData.getData());
 				continue;
 			}
