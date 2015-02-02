@@ -3,6 +3,7 @@ package com.zlatko.ladan.udp.msg.client;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JButton;
 import javax.swing.JScrollPane;
@@ -21,11 +22,15 @@ import javax.swing.JSplitPane;
 
 import org.eclipse.wb.swing.FocusTraversalOnArray;
 
+import com.zlatko.ladan.udp.msg.client.LoginDialog.DialogButtonPressEvent;
+import com.zlatko.ladan.udp.msg.client.LoginDialog.OnDialogButtonPress;
+
 import java.awt.Component;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
-public class WindowMain extends WindowAdapter implements ActionListener {
+public class WindowMain extends WindowAdapter implements ActionListener,
+		OnDialogButtonPress {
 	private static final String REGEX_MESSAGE = "MSG:[A-Z0-9a-z.,_\\-]{3,20}:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};";
 
 	private static final String MESSAGE_CONNECTION_FAILED = "Noo, couldn't connect, bye!";
@@ -41,16 +46,24 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	private StringBuilder m_msgsText = null;
 	private JButton m_buttonOk = null;
 	private JTextPane m_textPaneOutput = null;
+	private boolean m_isConnected = false;
+
+	private final Object m_lock = new Object();
 
 	/**
 	 * Launch the application.
 	 */
 	public static void main(String[] args) {
+		final LoginDialog dialog = new LoginDialog();
+		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
 					WindowMain window = new WindowMain();
-					window.m_frame.setVisible(true);
+					dialog.addWindowListener(window);
+					dialog.setVisible(true);
+					// window.m_frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -63,7 +76,23 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	 */
 	public WindowMain() {
 		initialize();
-		InitUdp();
+	}
+
+	private void setIsConnected(boolean a_isConnected) {
+		synchronized (m_lock) {
+			m_isConnected = a_isConnected;
+		}
+		// TODO: FIX THIS ONE SO THAT IT IS NICER, NICEIFY. DIALOG OR SOMETHING
+		if (a_isConnected) {
+			return;
+		}
+		m_frame.dispose();
+	}
+
+	private boolean getIsConnected() {
+		synchronized (m_lock) {
+			return m_isConnected;
+		}
 	}
 
 	/**
@@ -71,7 +100,17 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	 */
 	@Override
 	public void windowOpened(WindowEvent a_e) {
+		if ((a_e.getComponent() instanceof LoginDialog)) {
+			LoginDialog dialog = (LoginDialog) a_e.getSource();
+			dialog.setOnDiaLogPressEvent(this);
+			return;
+		}
 		m_textFieldInput.requestFocusInWindow();
+	}
+
+	@Override
+	public void windowClosed(WindowEvent a_e) {
+		super.windowClosed(a_e);
 	}
 
 	/**
@@ -82,9 +121,14 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	 */
 	public void actionPerformed(ActionEvent a_e) {
 		if (a_e.getSource() == m_buttonOk) {
+			String text = m_textFieldInput.getText();
+
+			if (text.length() < 1) {
+				return;
+			}
+
 			try {
-				m_udpClient.Send(String.format("MSG:%s;",
-						m_textFieldInput.getText()));
+				m_udpClient.Send(String.format("MSG:%s;", text));
 			} catch (IOException e) {
 				e.printStackTrace();
 				System.exit(1);
@@ -130,42 +174,45 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 	}
 
 	/**
-	 * Initializes the UDP client and starts the server starts
+	 * Initializes the UDP client and starts the server.
 	 * <code>messageUpdate</code>.
+	 *
+	 * @return If connected successfully.
 	 */
-	private void InitUdp() {
+	private boolean InitUdp(final String userName) {
+		if (getIsConnected()) {
+			return false;
+		}
+
 		m_udpClient = new UDPclient();
 		try {
 			m_udpClient.Connect("localhost", 1616);
 		} catch (UnknownHostException | SocketException e) {
 			e.printStackTrace();
-			System.exit(1);
-			return;
+			return false;
 		}
-		final String userName = String.format("JUICE-%x",
-				(int) (1000d + Math.random() * 1001d));
 
 		try {
 			m_udpClient.Send(String.format("CONN:%s;", userName));
 		} catch (IOException e) {
 			e.printStackTrace();
-			System.exit(1);
-			return;
+			return false;
 		}
 
 		try {
 			if (!m_udpClient.Receive().equals(LOGIN_OK)) {
 				System.out.println(MESSAGE_CONNECTION_FAILED);
-				System.exit(1);
-				return;
+				return false;
 			}
 		} catch (IOException e1) {
 			e1.printStackTrace();
-			System.exit(1);
-			return;
+			return false;
 		}
 
 		messageUpdate(m_udpClient, userName);
+		this.setIsConnected(true);
+
+		return true;
 	}
 
 	/**
@@ -184,12 +231,13 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 				String serverData = null;
 				String[] msgData = null;
 				final JTextPane textPaneOutput = m_textPaneOutput;
+
 				while (true) {
 					try {
 						serverData = udpClient.Receive();
 					} catch (IOException e) {
 						e.printStackTrace();
-						System.exit(1);
+						setIsConnected(false);
 						return;
 					}
 					if (serverData.equals(HEARTBEAT)) {
@@ -220,5 +268,20 @@ public class WindowMain extends WindowAdapter implements ActionListener {
 				}
 			}
 		}).start();
+	}
+
+	@Override
+	public boolean DialogButtonPressed(DialogButtonPressEvent a_e) {
+		if (!a_e.getIsOkButton() || getIsConnected()) {
+			return true;
+		}
+
+		if (a_e.getEventData() == null || a_e.getEventData().length() < 1
+				|| !InitUdp(a_e.getEventData())) {
+			return false;
+		}
+
+		this.m_frame.setVisible(true);
+		return true;
 	}
 }
