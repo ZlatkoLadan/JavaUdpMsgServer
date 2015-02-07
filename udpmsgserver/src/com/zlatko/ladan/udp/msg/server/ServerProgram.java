@@ -1,13 +1,19 @@
 package com.zlatko.ladan.udp.msg.server;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.SocketException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public class ServerProgram {
+	private static final String SERVER_IP_SOURCE = "https://zlatko.se/myip.php";
+
 	private static final String REGEX_MESSAGE = "MSG:[\\p{L}\\p{Punct}\\d\\s]{1,400};";
 	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_\\-]{3,20};";
 
@@ -76,11 +82,49 @@ public class ServerProgram {
 			return;
 		}
 		System.out.println("Connected");
+		System.out.println("Fetching Server's IP");
+		try {
+			System.out.printf("Server IP is: %s.%n", getServerGlobalIp());
+		} catch (IOException | IllegalArgumentException e) {
+			e.printStackTrace();
+			System.out.println("Couldn't get server IP");
+		}
 
 		doHeartBeat(m_udpServer);
 
 		update();
 		m_udpServer.close();
+	}
+
+	/**
+	 * Fetches the users IP.
+	 * 
+	 * @return return the IP.
+	 * @throws MalformedURLException
+	 *             If the set URL is malformed.
+	 * @throws IOException
+	 *             If an IO error occurs.
+	 * @throws IllegalArgumentException
+	 *             If fetch'd data is malformed.
+	 */
+	private static String getServerGlobalIp() throws MalformedURLException,
+			IOException {
+		URLConnection connection = new URL(SERVER_IP_SOURCE).openConnection();
+		connection.setRequestProperty("Accept-Charset", "us-ascii");
+		int chr = 0, i = 0;
+		StringBuilder outputText = new StringBuilder();
+
+		try (InputStream output = connection.getInputStream()) {
+			while ((chr = output.read()) >= 0) {
+				if (i++ >= 15) {
+					throw new IllegalArgumentException(
+							"The IP which the server got from source was malformed!!!");
+				}
+				outputText.append((char) chr);
+			}
+		}
+
+		return outputText.toString();
 	}
 
 	/**
