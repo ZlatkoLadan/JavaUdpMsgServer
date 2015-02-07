@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.SocketException;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 //TODO: Add more to comments
 public class UDPserver {
 	private static final int MAX_SIZE = 512;
+	private static final Charset CHARACTER_SET = Charset.forName("UTF-8");
 
 	private DatagramSocket m_serverSocket = null;
 	private byte[] m_receiveData = new byte[MAX_SIZE];
@@ -56,7 +58,8 @@ public class UDPserver {
 				m_receiveData.length);
 		m_serverSocket.receive(receivePacket);
 
-		return new UdpData(new String(receivePacket.getData()).trim(),
+		return new UdpData(new String(receivePacket.getData(), 0,
+				receivePacket.getLength(), CHARACTER_SET).trim(),
 				receivePacket.getAddress(), receivePacket.getPort());
 	}
 
@@ -68,7 +71,7 @@ public class UDPserver {
 	 * @throws IOException
 	 */
 	public void send(UdpData a_data) throws IOException {
-		m_sendData = a_data.getData().getBytes();
+		m_sendData = a_data.getData().getBytes(CHARACTER_SET);
 		if (m_sendData.length > MAX_SIZE) {
 			m_sendData = resizeArray(m_sendData);
 		}

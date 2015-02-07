@@ -6,11 +6,13 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 //TODO: Add more to comments
 public class UDPclient {
 	private static final int MAX_SIZE = 512;
+	private static final Charset CHARACTER_SET = Charset.forName("UTF-8");
 
 	private DatagramSocket m_clientSocket = null;
 	private InetAddress m_IpAddress = null;
@@ -22,7 +24,7 @@ public class UDPclient {
 	 * Connects to the server.
 	 *
 	 * @param a_host
-	 *            the server's host name or ip address
+	 *            the server's host name or IP address
 	 * @param a_port
 	 *            the server's port
 	 * @throws UnknownHostException
@@ -48,7 +50,8 @@ public class UDPclient {
 				m_receiveData.length);
 		m_clientSocket.receive(receivePacket);
 
-		return new String(receivePacket.getData()).trim();
+		return new String(receivePacket.getData(), 0,
+				receivePacket.getLength(), CHARACTER_SET).trim();
 	}
 
 	/**
@@ -59,7 +62,7 @@ public class UDPclient {
 	 * @throws IOException
 	 */
 	public void Send(String a_message) throws IOException {
-		m_sendData = a_message.getBytes();
+		m_sendData = a_message.getBytes(CHARACTER_SET);
 		DatagramPacket sendPacket = new DatagramPacket(m_sendData,
 				m_sendData.length, m_IpAddress, m_port);
 		m_clientSocket.send(sendPacket);

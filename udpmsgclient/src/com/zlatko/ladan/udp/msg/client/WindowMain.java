@@ -190,21 +190,21 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 *
 	 * @return If connected successfully.
 	 */
-	private boolean InitUdp(final String userName) {
+	private boolean InitUdp(final String a_userName, String a_host) {
 		if (getIsConnected()) {
 			return false;
 		}
 
 		m_udpClient = new UDPclient();
 		try {
-			m_udpClient.Connect("localhost", 1616);
+			m_udpClient.Connect(a_host, 1616);
 		} catch (UnknownHostException | SocketException e) {
 			e.printStackTrace();
 			return false;
 		}
 
 		try {
-			m_udpClient.Send(String.format("CONN:%s;", userName));
+			m_udpClient.Send(String.format("CONN:%s;", a_userName));
 		} catch (IOException e) {
 			e.printStackTrace();
 			return false;
@@ -220,7 +220,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 			return false;
 		}
 
-		messageUpdate(m_udpClient, userName);
+		messageUpdate(m_udpClient, a_userName);
 		this.setIsConnected(true);
 
 		return true;
@@ -293,8 +293,9 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		}
 
 		if (a_e.getEventData() == null
-				|| !a_e.getEventData().matches("[A-Z0-9a-z.,_\\-]{3,20}")
-				|| !InitUdp(a_e.getEventData())) {
+				|| !a_e.getEventData()[0].matches("[A-Z0-9a-z.,_\\-]{3,20}")
+				|| a_e.getEventData()[1].length() < 1
+				|| !InitUdp(a_e.getEventData()[0], a_e.getEventData()[1])) {
 			return false;
 		}
 
