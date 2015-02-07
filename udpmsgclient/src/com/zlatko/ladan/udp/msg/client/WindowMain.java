@@ -2,6 +2,7 @@ package com.zlatko.ladan.udp.msg.client;
 
 import java.awt.Dimension;
 import java.awt.EventQueue;
+import java.awt.Window;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioInputStream;
@@ -94,6 +95,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 					WindowMain window = new WindowMain();
 					dialog.setOnDiaLogPressEvent(window);
 					dialog.setVisible(true);
+					dialog.addWindowStateListener(window);
 					// window.m_frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -136,11 +138,15 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 */
 	@Override
 	public void windowOpened(WindowEvent a_e) {
+		((Window) a_e.getComponent()).toFront();
 		m_textFieldInput.requestFocusInWindow();
 	}
 
 	@Override
 	public void windowClosing(WindowEvent a_e) {
+		if (a_e.getComponent() instanceof LoginDialog) {
+			return;
+		}
 		if (getIsConnected()) {
 			try {
 				m_udpClient.Send(DISCONNECT);
@@ -373,6 +379,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		}
 
 		this.m_frame.setVisible(true);
+		this.m_frame.toFront();
 		return true;
 	}
 }
