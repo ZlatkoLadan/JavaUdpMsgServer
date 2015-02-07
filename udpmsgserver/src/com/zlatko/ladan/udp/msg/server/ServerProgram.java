@@ -98,7 +98,7 @@ public class ServerProgram {
 
 	/**
 	 * Fetches the users IP.
-	 * 
+	 *
 	 * @return return the IP.
 	 * @throws MalformedURLException
 	 *             If the set URL is malformed.

@@ -3,6 +3,13 @@ package com.zlatko.ladan.udp.msg.client;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JButton;
@@ -14,6 +21,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.net.SocketException;
+import java.net.URL;
 import java.net.UnknownHostException;
 
 import javax.swing.JTextPane;
@@ -33,6 +41,11 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		OnDialogButtonPress {
 	private static final String REGEX_MESSAGE = "MSG:[A-Z0-9a-z.,_\\-]{3,20}:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};";
 
+	private static final String DIRECTORY_AUDIO = "resources/sounds";
+	private static final String FILE_EXTENSION_AUDIO = "au";
+	private static final String AUDIO_BURP;
+	private static final String AUDIO_TWEET;
+
 	private static final String WINDOW_TITLE = "UDP Messaging Client";
 	private static final String MESSAGE_CONNECTION_FAILED = "Noo, couldn't connect, bye!";
 	private static final String MESSAGE_SEPARATOR = ":";
@@ -50,6 +63,23 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	private boolean m_isConnected = false;
 
 	private final Object m_lock = new Object();
+
+	/**
+	 * Creates a string with path to an audio file.
+	 *
+	 * @param a_name
+	 *            the name of the audio
+	 * @return the audio file path
+	 */
+	private static String getAudioFilePath(String a_name) {
+		return String.format("%s/%s.%s", DIRECTORY_AUDIO, a_name,
+				FILE_EXTENSION_AUDIO);
+	}
+
+	static {
+		AUDIO_BURP = getAudioFilePath("burp");
+		AUDIO_TWEET = getAudioFilePath("tweet");
+	}
 
 	/**
 	 * Launch the application.
@@ -226,6 +256,36 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		return true;
 	}
 
+	private enum AudioType {
+		Burp, Tweet
+	}
+
+	private void playAudio(AudioType a_audio)
+			throws UnsupportedAudioFileException, IOException,
+			LineUnavailableException {
+		String audioFile;
+
+		switch (a_audio) {
+		case Tweet:
+			audioFile = AUDIO_TWEET;
+			break;
+
+		default:
+			audioFile = AUDIO_BURP;
+			break;
+		}
+
+		URL url = this.getClass().getClassLoader().getResource(audioFile);
+		AudioInputStream audioIn = AudioSystem.getAudioInputStream(url);
+
+		AudioFormat format = audioIn.getFormat();
+		DataLine.Info info = new DataLine.Info(Clip.class, format);
+
+		Clip clip = (Clip) AudioSystem.getLine(info);
+		clip.open(audioIn);
+		clip.start();
+	}
+
 	/**
 	 * Starts the messaging update which fetches messages. This method starts a
 	 * thread.
@@ -271,14 +331,27 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 					msgData = serverData.substring(4).split(MESSAGE_SEPARATOR,
 							2);
 
+					final String message = msgData[1].substring(0,
+							msgData[1].length() - 1);
 					final String data = String.format("%s wrote:%n%s%n",
 							msgData[0].equals(userName) ? "You" : msgData[0],
-							msgData[1].substring(0, msgData[1].length() - 1));
+							message);
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
 							m_msgsText.append(data);
 							textPaneOutput.setText(m_msgsText.toString());
+							if (message.equals("/burp")
+									|| message.equals("/tweet")) {
+								try {
+									playAudio(message.equals("/burp") ? AudioType.Burp
+											: AudioType.Tweet);
+								} catch (UnsupportedAudioFileException
+										| IOException
+										| LineUnavailableException e) {
+									e.printStackTrace();
+								}
+							}
 						}
 					});
 				}
