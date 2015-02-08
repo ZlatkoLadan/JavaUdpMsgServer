@@ -9,8 +9,6 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.DataLine;
-import javax.sound.sampled.LineEvent;
-import javax.sound.sampled.LineListener;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JDialog;
@@ -355,12 +353,13 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 * Starts the messaging update which fetches messages. This method starts a
 	 * thread.
 	 *
-	 * @param udpClient
+	 * @param a_udpClient
 	 *            The UDP client
-	 * @param userName
+	 * @param a_userName
 	 *            The user name
 	 */
-	private void messageUpdate(final UDPclient udpClient, final String userName) {
+	private void messageUpdate(final UDPclient a_udpClient,
+			final String a_userName) {
 		(new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -370,7 +369,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 
 				while (true) {
 					try {
-						serverData = udpClient.Receive();
+						serverData = a_udpClient.Receive();
 					} catch (IOException e) {
 						e.printStackTrace();
 						setIsConnected(false);
@@ -383,7 +382,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 
 					if (serverData.equals(HEARTBEAT)) {
 						try {
-							udpClient.Send(HEARTBEAT);
+							a_udpClient.Send(HEARTBEAT);
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -410,7 +409,8 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 					msgData[1] = msgData[1].substring(0,
 							msgData[1].length() - 1);
 
-					handleMessage(textPaneOutput, msgData[0], msgData[1]);
+					handleMessage(textPaneOutput, a_userName, msgData[0],
+							msgData[1]);
 				}
 			}
 		})).start();
@@ -435,10 +435,10 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		});
 	}
 
-	private void handleMessage(final JTextPane a_textPaneOutput, String a_user,
-			final String a_message) {
+	private void handleMessage(final JTextPane a_textPaneOutput,
+			final String a_thisUserName, String a_user, final String a_message) {
 		final String text = String.format("%s wrote:%n%s%n",
-				a_user.equals(a_user) ? "You" : a_user, a_message);
+				a_thisUserName.equals(a_user) ? "You" : a_user, a_message);
 
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
