@@ -9,6 +9,8 @@ import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineEvent;
+import javax.sound.sampled.LineListener;
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.JDialog;
@@ -42,10 +44,15 @@ import java.awt.Toolkit;
 
 public class WindowMain extends WindowAdapter implements ActionListener,
 		OnDialogButtonPress {
+	private static final String REGEX_LOG_IN = "IN:[A-Z0-9a-z.,_\\-]{3,20};";
+	private static final String REGEX_LOG_OUT = "OUT:[A-Z0-9a-z.,_\\-]{3,20};";
 	private static final String REGEX_MESSAGE = "MSG:[A-Z0-9a-z.,_\\-]{3,20}:[\\p{L}\\p{Cntrl}\\p{Punct}\\d\\s]{1,400};";
 
 	private static final String DIRECTORY_AUDIO = "resources/sounds";
 	private static final String FILE_EXTENSION_AUDIO = "au";
+	private static final String AUDIO_LOG_IN;
+	private static final String AUDIO_LOG_OUT;
+	private static final String AUDIO_MESSAGE;
 	private static final String AUDIO_BURP;
 	private static final String AUDIO_TWEET;
 
@@ -64,6 +71,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	private JButton m_buttonOk = null;
 	private JTextPane m_textPaneOutput = null;
 	private boolean m_isConnected = false;
+	private Clip m_clip = null;
 
 	private final Object m_lock = new Object();
 
@@ -80,6 +88,9 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	}
 
 	static {
+		AUDIO_LOG_IN = getAudioFilePath("log_in");
+		AUDIO_LOG_OUT = getAudioFilePath("log_out");
+		AUDIO_MESSAGE = getAudioFilePath("message");
 		AUDIO_BURP = getAudioFilePath("burp");
 		AUDIO_TWEET = getAudioFilePath("tweet");
 	}
@@ -115,12 +126,25 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		initialize();
 	}
 
+	/**
+	 * Saves preferences.
+	 *
+	 * @param a_username
+	 *            The user's name to save.
+	 * @param a_host
+	 *            The host's name to save.
+	 */
 	private void savePreferences(String a_username, String a_host) {
 		Preferences prefs = Preferences.userNodeForPackage(getClass());
 		prefs.put("username", a_username);
 		prefs.put("host", a_host);
 	}
 
+	/**
+	 * Loads and returns the preferences.
+	 *
+	 * @return The preferences, first the user name and second is host.
+	 */
 	private String[] getPreferences() {
 		Preferences prefs = Preferences.userNodeForPackage(getClass());
 
@@ -281,7 +305,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	}
 
 	private enum AudioType {
-		Burp, Tweet
+		LogIn, LogOut, Message, Burp, Tweet
 	}
 
 	private void playAudio(AudioType a_audio)
@@ -290,6 +314,18 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		String audioFile;
 
 		switch (a_audio) {
+		case LogIn:
+			audioFile = AUDIO_LOG_IN;
+			break;
+
+		case LogOut:
+			audioFile = AUDIO_LOG_OUT;
+			break;
+
+		case Message:
+			audioFile = AUDIO_MESSAGE;
+			break;
+
 		case Tweet:
 			audioFile = AUDIO_TWEET;
 			break;
@@ -305,9 +341,14 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		AudioFormat format = audioIn.getFormat();
 		DataLine.Info info = new DataLine.Info(Clip.class, format);
 
-		Clip clip = (Clip) AudioSystem.getLine(info);
-		clip.open(audioIn);
-		clip.start();
+		if (m_clip != null && m_clip.isActive()) {
+			m_clip.stop();
+			m_clip.close();
+		}
+
+		m_clip = (Clip) AudioSystem.getLine(info);
+		m_clip.open(audioIn);
+		m_clip.start();
 	}
 
 	/**
@@ -349,38 +390,78 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 						continue;
 					}
 					System.out.println(serverData);
+
+					if (serverData.matches(REGEX_LOG_IN)
+							|| serverData.matches(REGEX_LOG_OUT)) {
+						handleUserEvent(textPaneOutput, serverData
+								.matches(REGEX_LOG_IN) ? AudioType.LogIn
+								: AudioType.LogOut, serverData.substring(
+								serverData.indexOf(MESSAGE_SEPARATOR) + 1,
+								serverData.length() - 1));
+						continue;
+					}
+
 					if (!serverData.matches(REGEX_MESSAGE)) {
 						continue;
 					}
+
 					msgData = serverData.substring(4).split(MESSAGE_SEPARATOR,
 							2);
-
-					final String message = msgData[1].substring(0,
+					msgData[1] = msgData[1].substring(0,
 							msgData[1].length() - 1);
-					final String data = String.format("%s wrote:%n%s%n",
-							msgData[0].equals(userName) ? "You" : msgData[0],
-							message);
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							m_msgsText.append(data);
-							textPaneOutput.setText(m_msgsText.toString());
-							if (message.equals("/burp")
-									|| message.equals("/tweet")) {
-								try {
-									playAudio(message.equals("/burp") ? AudioType.Burp
-											: AudioType.Tweet);
-								} catch (UnsupportedAudioFileException
-										| IOException
-										| LineUnavailableException e) {
-									e.printStackTrace();
-								}
-							}
-						}
-					});
+
+					handleMessage(textPaneOutput, msgData[0], msgData[1]);
 				}
 			}
 		})).start();
+	}
+
+	private void handleUserEvent(final JTextPane a_textPaneOutput,
+			final AudioType a_type, final String a_userName) {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				m_msgsText.append(String.format("User %s logged %s.%n",
+						a_userName, a_type == AudioType.LogIn ? "in" : "out"));
+				a_textPaneOutput.setText(m_msgsText.toString());
+
+				try {
+					playAudio(a_type);
+				} catch (UnsupportedAudioFileException | IOException
+						| LineUnavailableException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+	}
+
+	private void handleMessage(final JTextPane a_textPaneOutput, String a_user,
+			final String a_message) {
+		final String text = String.format("%s wrote:%n%s%n",
+				a_user.equals(a_user) ? "You" : a_user, a_message);
+
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				m_msgsText.append(text);
+				a_textPaneOutput.setText(m_msgsText.toString());
+
+				AudioType type = AudioType.Message;
+
+				if (a_message.equals("/burp")) {
+					type = AudioType.Burp;
+				} else if (a_message.equals("/tweet")) {
+					type = AudioType.Tweet;
+				}
+
+				try {
+					playAudio(type);
+				} catch (UnsupportedAudioFileException | IOException
+						| LineUnavailableException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	@Override
@@ -400,6 +481,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 
 		this.m_frame.setVisible(true);
 		this.m_frame.toFront();
+
 		return true;
 	}
 }

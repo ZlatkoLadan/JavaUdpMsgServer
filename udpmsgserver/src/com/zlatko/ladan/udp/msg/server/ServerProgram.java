@@ -160,23 +160,14 @@ public class ServerProgram {
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
+
 						continue;
 					}
 
 					user = new User(userName, clientData.getIpAddress(),
 							clientData.getPort());
 					user.updateLastResponse();
-					synchronized (m_users) {
-						m_users.add(user);
-					}
-					clientData.setData(OK);
-					try {
-						m_udpServer.send(clientData);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					System.out.printf(Locale.ENGLISH, "User added: %s!%n",
-							user.toString());
+					userLogin(user, clientData);
 				} else {
 					System.out.printf(Locale.ENGLISH,
 							"Client (%s:%d) tried to send message: \"%s\"!%n",
@@ -196,13 +187,7 @@ public class ServerProgram {
 			}
 			if (clientData.getData().equals(USER_DISCONNECTED)) {
 				synchronized (m_users) {
-					for (int i = 0; i < m_users.size(); ++i) {
-						if (user.equals(m_users.get(i))) {
-							System.out.printf(Locale.ENGLISH,
-									"Client %s disconnected!%n", user);
-							m_users.remove(i);
-						}
-					}
+					userLogout(m_users.indexOf(user), false, clientData);
 					continue;
 				}
 			}
@@ -217,19 +202,78 @@ public class ServerProgram {
 			System.out.printf(Locale.ENGLISH, "user %s, sent msg: \"%s\"%n",
 					user.toString(), clientData.getData());
 			user.updateLastResponse();
+			clientData.setData(String.format(Locale.ENGLISH, "MSG:%s:%s",
+					user.getUserName(), clientData.getData().substring(4)));
 			try {
-				clientData.setData(String.format(Locale.ENGLISH, "MSG:%s:%s",
-						user.getUserName(), clientData.getData().substring(4)));
-				synchronized (m_users) {
-					for (int i = 0; i < m_users.size(); ++i) {
-						user = m_users.get(i);
-						clientData.setIpAddress(user.getIpAddress());
-						clientData.setPort(user.getPort());
-						m_udpServer.send(clientData);
-					}
-				}
+				broadcastToAllUsers(clientData);
 			} catch (IOException e) {
 				e.printStackTrace();
+			}
+		}
+	}
+
+	private static void userLogin(User a_user, UdpData clientData) {
+		synchronized (m_users) {
+			m_users.add(a_user);
+		}
+
+		clientData.setData(OK);
+		try {
+			m_udpServer.send(clientData);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		System.out.printf(Locale.ENGLISH, "User added: %s!%n",
+				a_user.toString());
+
+		clientData.setData(String.format(Locale.ENGLISH, "IN:%s;",
+				a_user.getUserName()));
+		try {
+			broadcastToAllUsers(clientData);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void userLogout(int a_index, boolean a_kicked,
+			UdpData clientData) {
+		User user = m_users.get(a_index);
+
+		if (a_kicked) {
+			System.out.printf(Locale.ENGLISH,
+					"Removed user %s due to inactivity!%n", user.toString());
+		} else {
+			System.out
+					.printf(Locale.ENGLISH, "Client %s disconnected!%n", user);
+		}
+		m_users.remove(a_index);
+
+		clientData.setData(String.format(Locale.ENGLISH, "OUT:%s;",
+				user.getUserName()));
+		try {
+			broadcastToAllUsers(clientData);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Broadcasts to all logged in users.
+	 *
+	 * @param a_clientData
+	 *            the data
+	 * @throws IOException
+	 *             If an IO error occurs
+	 */
+	private static void broadcastToAllUsers(UdpData a_clientData)
+			throws IOException {
+		User user = null;
+		synchronized (m_users) {
+			for (int i = 0; i < m_users.size(); ++i) {
+				user = m_users.get(i);
+				a_clientData.setIpAddress(user.getIpAddress());
+				a_clientData.setPort(user.getPort());
+				m_udpServer.send(a_clientData);
 			}
 		}
 	}
@@ -258,10 +302,7 @@ public class ServerProgram {
 							lUser = m_users.get(i);
 							if (lUser.getLastResponse() < System
 									.currentTimeMillis() - 30000l) {
-								System.out.printf(Locale.ENGLISH,
-										"Removed user %s due to inactivity!%n",
-										lUser.toString());
-								m_users.remove(i);
+								userLogout(i, true, userData);
 								--i;
 								continue;
 							}

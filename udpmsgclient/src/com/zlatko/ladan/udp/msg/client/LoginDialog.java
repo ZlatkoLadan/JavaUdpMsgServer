@@ -81,8 +81,8 @@ public class LoginDialog extends JDialog implements ActionListener {
 		m_textFieldHost.setText(a_host);
 	}
 
-	public void setOnDiaLogPressEvent(OnDialogButtonPress a_event) {
-		m_event = a_event;
+	public void setOnDiaLogPressEvent(OnDialogButtonPress a_e) {
+		m_event = a_e;
 	}
 
 	@Override
