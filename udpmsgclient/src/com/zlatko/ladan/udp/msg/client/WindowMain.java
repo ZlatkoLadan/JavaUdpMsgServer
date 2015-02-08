@@ -57,7 +57,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	private static final String WINDOW_TITLE = "UDP Messaging Client";
 	private static final String MESSAGE_CONNECTION_FAILED = "Noo, couldn't connect, bye!";
 	private static final String MESSAGE_SEPARATOR = ":";
-	private static final String LOGIN_OK = "OK;";
+	private static final String LOGIN_NOT_OK = "NOK;";
 	private static final String HEARTBEAT = "1;";
 	private static final String DISCONNECT = "DISC;";
 
@@ -105,7 +105,6 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 				try {
 					WindowMain window = new WindowMain();
 					String[] prefs = window.getPreferences();
-					System.out.println("z" + prefs[0] + prefs[1]);
 					dialog.setInputFields(prefs[0], prefs[1]);
 					dialog.setOnDiaLogPressEvent(window);
 					dialog.setVisible(true);
@@ -177,6 +176,16 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	@Override
 	public void windowOpened(WindowEvent a_e) {
 		((Window) a_e.getComponent()).toFront();
+		if (a_e.getComponent() instanceof LoginDialog) {
+			return;
+		}
+
+		try {
+			playAudio(AudioType.LogIn);
+		} catch (UnsupportedAudioFileException | IOException
+				| LineUnavailableException e) {
+			e.printStackTrace();
+		}
 		m_textFieldInput.requestFocusInWindow();
 	}
 
@@ -185,6 +194,14 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		if (a_e.getComponent() instanceof LoginDialog) {
 			return;
 		}
+
+		try {
+			playAudio(AudioType.LogOut);
+		} catch (UnsupportedAudioFileException | IOException
+				| LineUnavailableException e) {
+			e.printStackTrace();
+		}
+
 		if (getIsConnected()) {
 			try {
 				m_udpClient.Send(DISCONNECT);
@@ -195,6 +212,14 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 			setIsConnected(false, true);
 		}
 
+		while (m_clip.getFramePosition() < m_clip.getFrameLength() - 10) {
+			try {
+				Thread.sleep(100);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				break;
+			}
+		}
 		super.windowClosing(a_e);
 	}
 
@@ -274,6 +299,7 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		m_udpClient = new UDPclient();
 		try {
 			m_udpClient.Connect(a_host, 1616);
+			m_udpClient.setTimeoutInSeconds(10);
 		} catch (UnknownHostException | SocketException e) {
 			e.printStackTrace();
 			return false;
@@ -287,12 +313,13 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 		}
 
 		try {
-			if (!m_udpClient.Receive().equals(LOGIN_OK)) {
+			if (m_udpClient.Receive().equals(LOGIN_NOT_OK)) {
 				System.out.println(MESSAGE_CONNECTION_FAILED);
 				return false;
 			}
-		} catch (IOException e1) {
-			e1.printStackTrace();
+			m_udpClient.setTimeoutInSeconds(30);
+		} catch (IOException e) {
+			e.printStackTrace();
 			return false;
 		}
 

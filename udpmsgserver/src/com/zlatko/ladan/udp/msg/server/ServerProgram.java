@@ -17,7 +17,6 @@ public class ServerProgram {
 	private static final String REGEX_MESSAGE = "MSG:[\\p{L}\\p{Punct}\\d\\s]{1,400};";
 	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_\\-]{3,20};";
 
-	private static final String OK = "OK;";
 	private static final String NOT_OK = "NOK;";
 	private static final String HEARTBEAT = "1;";
 	private static final String USER_DISCONNECTED = "DISC;";
@@ -217,12 +216,6 @@ public class ServerProgram {
 			m_users.add(a_user);
 		}
 
-		clientData.setData(OK);
-		try {
-			m_udpServer.send(clientData);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
 		System.out.printf(Locale.ENGLISH, "User added: %s!%n",
 				a_user.toString());
 

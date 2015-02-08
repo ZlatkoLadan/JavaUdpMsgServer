@@ -35,7 +35,18 @@ public class UDPclient {
 		m_clientSocket = new DatagramSocket();
 		m_IpAddress = InetAddress.getByName(a_host);
 		m_port = a_port;
-		m_clientSocket.setSoTimeout(30000);
+	}
+
+	/**
+	 * Sets timeout in seconds.
+	 *
+	 * @param a_seconds
+	 *            Seconds.
+	 * @throws SocketException
+	 *             If error in underlying protocol.
+	 */
+	public void setTimeoutInSeconds(int a_seconds) throws SocketException {
+		m_clientSocket.setSoTimeout(a_seconds * 1000);
 	}
 
 	/**
