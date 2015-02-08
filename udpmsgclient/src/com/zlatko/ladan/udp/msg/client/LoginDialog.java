@@ -11,18 +11,21 @@ import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
+import java.awt.Toolkit;
 
 public class LoginDialog extends JDialog implements ActionListener {
 	private static final long serialVersionUID = 2573690239598694692L;
 	private final JPanel m_contentPanel;
-	private JTextField textFieldUserName = null;
+	private JTextField m_textFieldUserName = null;
 	private OnDialogButtonPress m_event = null;
-	private JTextField textFieldHost = null;
+	private JTextField m_textFieldHost = null;
 
 	/**
 	 * Create the dialog.
 	 */
 	public LoginDialog() {
+		setIconImage(Toolkit.getDefaultToolkit().getImage(
+				LoginDialog.class.getResource("/resources/images/icon.png")));
 		setTitle("Login UdpClient");
 		m_contentPanel = new JPanel();
 		setResizable(false);
@@ -37,10 +40,10 @@ public class LoginDialog extends JDialog implements ActionListener {
 			m_contentPanel.add(labelLoginUserName);
 		}
 		{
-			textFieldUserName = new JTextField();
-			textFieldUserName.setBounds(98, 10, 114, 19);
-			m_contentPanel.add(textFieldUserName);
-			textFieldUserName.setColumns(10);
+			m_textFieldUserName = new JTextField();
+			m_textFieldUserName.setBounds(98, 10, 114, 19);
+			m_contentPanel.add(m_textFieldUserName);
+			m_textFieldUserName.setColumns(10);
 		}
 		{
 			JLabel labelHost = new JLabel("Host:");
@@ -48,10 +51,10 @@ public class LoginDialog extends JDialog implements ActionListener {
 			m_contentPanel.add(labelHost);
 		}
 		{
-			textFieldHost = new JTextField();
-			textFieldHost.setBounds(98, 34, 114, 19);
-			textFieldHost.setColumns(10);
-			m_contentPanel.add(textFieldHost);
+			m_textFieldHost = new JTextField();
+			m_textFieldHost.setBounds(98, 34, 114, 19);
+			m_textFieldHost.setColumns(10);
+			m_contentPanel.add(m_textFieldHost);
 		}
 		{
 			JPanel buttonPane = new JPanel();
@@ -73,6 +76,11 @@ public class LoginDialog extends JDialog implements ActionListener {
 		}
 	}
 
+	public void setInputFields(String a_userName, String a_host) {
+		m_textFieldUserName.setText(a_userName);
+		m_textFieldHost.setText(a_host);
+	}
+
 	public void setOnDiaLogPressEvent(OnDialogButtonPress a_event) {
 		m_event = a_event;
 	}
@@ -87,8 +95,8 @@ public class LoginDialog extends JDialog implements ActionListener {
 
 		if (a_e.getActionCommand().equals("OK")) {
 			isOk = true;
-			eventData[0] = textFieldUserName.getText();
-			eventData[1] = textFieldHost.getText();
+			eventData[0] = m_textFieldUserName.getText();
+			eventData[1] = m_textFieldHost.getText();
 		}
 
 		if (m_event.DialogButtonPressed(new DialogButtonPressEvent(isOk,

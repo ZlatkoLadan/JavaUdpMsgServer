@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.SocketException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.prefs.Preferences;
 
 import javax.swing.JTextPane;
 import javax.swing.JTextField;
@@ -37,6 +38,7 @@ import com.zlatko.ladan.udp.msg.client.LoginDialog.OnDialogButtonPress;
 import java.awt.Component;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.Toolkit;
 
 public class WindowMain extends WindowAdapter implements ActionListener,
 		OnDialogButtonPress {
@@ -93,10 +95,12 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 			public void run() {
 				try {
 					WindowMain window = new WindowMain();
+					String[] prefs = window.getPreferences();
+					System.out.println("z" + prefs[0] + prefs[1]);
+					dialog.setInputFields(prefs[0], prefs[1]);
 					dialog.setOnDiaLogPressEvent(window);
 					dialog.setVisible(true);
 					dialog.addWindowStateListener(window);
-					// window.m_frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -109,6 +113,18 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 */
 	public WindowMain() {
 		initialize();
+	}
+
+	private void savePreferences(String a_username, String a_host) {
+		Preferences prefs = Preferences.userNodeForPackage(getClass());
+		prefs.put("username", a_username);
+		prefs.put("host", a_host);
+	}
+
+	private String[] getPreferences() {
+		Preferences prefs = Preferences.userNodeForPackage(getClass());
+
+		return new String[] { prefs.get("username", ""), prefs.get("host", "") };
 	}
 
 	private void setIsConnected(boolean a_isConnected) {
@@ -190,6 +206,8 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 	 */
 	private void initialize() {
 		m_frame = new JFrame();
+		m_frame.setIconImage(Toolkit.getDefaultToolkit().getImage(
+				WindowMain.class.getResource("/resources/images/icon.png")));
 		m_textFieldInput = new JTextField();
 		m_msgsText = new StringBuilder();
 		m_buttonOk = new JButton("OK");
@@ -377,6 +395,8 @@ public class WindowMain extends WindowAdapter implements ActionListener,
 				|| !InitUdp(a_e.getEventData()[0], a_e.getEventData()[1])) {
 			return false;
 		}
+
+		savePreferences(a_e.getEventData()[0], a_e.getEventData()[1]);
 
 		this.m_frame.setVisible(true);
 		this.m_frame.toFront();
