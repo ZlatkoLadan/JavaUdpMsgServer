@@ -5,6 +5,7 @@ import java.net.InetAddress;
 //TODO: Add more to comments
 public class UdpData {
 	private String m_data;
+	private byte[] m_rawData;
 	private InetAddress m_ipAddress;
 	private int m_port;
 
@@ -41,6 +42,26 @@ public class UdpData {
 	 */
 	public void setData(String a_data) {
 		m_data = a_data;
+	}
+
+	/**
+	 * Sets the raw data.
+	 *
+	 * @param a_data
+	 *            The data
+	 */
+	public byte[] getRawData() {
+		return m_rawData;
+	}
+
+	/**
+	 * Sets the raw data.
+	 *
+	 * @param a_data
+	 *            The data
+	 */
+	public void setRawData(byte[] a_data) {
+		m_rawData = a_data;
 	}
 
 	public void setIpAddress(InetAddress a_ipAdress) {

@@ -55,14 +55,12 @@ public class UDPclient {
 	 * @return The server's data that was received
 	 * @throws IOException
 	 */
-	public String Receive() throws IOException {
+	public byte[] Receive() throws IOException {
 		Arrays.fill(m_receiveData, (byte) 0);
 		DatagramPacket receivePacket = new DatagramPacket(m_receiveData,
 				m_receiveData.length);
 		m_clientSocket.receive(receivePacket);
-
-		return new String(receivePacket.getData(), 0,
-				receivePacket.getLength(), CHARACTER_SET).trim();
+		return Arrays.copyOf(m_receiveData, receivePacket.getLength());
 	}
 
 	/**
@@ -76,6 +74,19 @@ public class UDPclient {
 		m_sendData = a_message.getBytes(CHARACTER_SET);
 		DatagramPacket sendPacket = new DatagramPacket(m_sendData,
 				m_sendData.length, m_IpAddress, m_port);
+		m_clientSocket.send(sendPacket);
+	}
+
+	/**
+	 * Sends a text message to the server.
+	 *
+	 * @param a_message
+	 *            The message
+	 * @throws IOException
+	 */
+	public void Send(byte[] a_message) throws IOException {
+		DatagramPacket sendPacket = new DatagramPacket(a_message,
+				a_message.length, m_IpAddress, m_port);
 		m_clientSocket.send(sendPacket);
 	}
 

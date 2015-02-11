@@ -191,6 +191,35 @@ public class ServerProgram {
 				}
 			}
 
+			if (clientData.getRawData() != null) {
+				user.updateLastResponse();
+				byte[] data = clientData.getRawData();
+				byte[] newArr = new byte[4 + user.getUserName().length() + 1
+						+ data.length + 1];
+				int i = 0;
+				byte[] dataPrefixStr = String.format(Locale.ENGLISH, "FIL:%s:",
+						user.getUserName()).getBytes(UDPserver.CHARACTER_SET);
+
+				for (i = 0; i < dataPrefixStr.length; ++i) {
+					newArr[i] = dataPrefixStr[i];
+				}
+				for (int j = 0; j < data.length; ++j, ++i) {
+					newArr[i] = data[j];
+				}
+				newArr[i] = (byte) ';';
+				clientData.setRawData(newArr);
+
+				System.out.printf(Locale.ENGLISH,
+						"user %s sent a file with size %d!%n", user.toString(),
+						i - 4 - 1 - user.getUserName().length() - 1 + 1);
+				try {
+					broadcastToAllUsers(clientData);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				continue;
+			}
+
 			if (!clientData.getData().matches(REGEX_MESSAGE)) {
 				System.out.printf(Locale.ENGLISH,
 						"user %s tried to send \"%s\"!%n", user.toString(),
