@@ -6,18 +6,22 @@ import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 public class ServerProgram {
+	private static final Charset CHARACTER_SET = Charset.forName("UTF-8");
+
 	private static final String SERVER_IP_SOURCE = "https://zlatko.se/myip.php";
 
 	private static final String REGEX_MESSAGE = "MSG:[\\p{L}\\p{Punct}\\d\\s]{1,400};";
 	private static final String REGEX_CONNECT = "CONN:[A-Z0-9a-z.,_\\-]{3,20};";
+	private static final String START_WITH_FILE = "FIL:";
 
-	private static final String NOT_OK = "NOK;";
+	private static final byte[] NOT_OK = ("NOK;").getBytes(CHARACTER_SET);
 	private static final String HEARTBEAT = "1;";
 	private static final String USER_DISCONNECTED = "DISC;";
 
@@ -132,6 +136,7 @@ public class ServerProgram {
 	private static void update() {
 		UdpData clientData = null;
 		User user = null;
+		String receivedText = null;
 
 		while (true) {
 			try {
@@ -141,12 +146,14 @@ public class ServerProgram {
 				break;
 			}
 
+			receivedText = new String(clientData.getData(), CHARACTER_SET);
+
 			user = getUser(clientData);
 
 			if (user == null) {
-				if (clientData.getData().matches(REGEX_CONNECT)) {
-					String userName = clientData.getData().substring(5,
-							clientData.getData().length() - 1);
+				if (receivedText.matches(REGEX_CONNECT)) {
+					String userName = receivedText.substring(5,
+							receivedText.length() - 1);
 					if (userLoggedIn(userName)) {
 						System.out
 								.printf(Locale.ENGLISH,
@@ -171,11 +178,11 @@ public class ServerProgram {
 					System.out.printf(Locale.ENGLISH,
 							"Client (%s:%d) tried to send message: \"%s\"!%n",
 							clientData.getIpAddress().toString(),
-							clientData.getPort(), clientData.getData());
+							clientData.getPort(), receivedText);
 				}
 				continue;
 			}
-			if (clientData.getData().equals(HEARTBEAT)) {
+			if (receivedText.equals(HEARTBEAT)) {
 				try {
 					m_udpServer.send(clientData);
 					user.updateLastResponse();
@@ -184,30 +191,31 @@ public class ServerProgram {
 				}
 				continue;
 			}
-			if (clientData.getData().equals(USER_DISCONNECTED)) {
+			if (receivedText.equals(USER_DISCONNECTED)) {
 				synchronized (m_users) {
 					userLogout(m_users.indexOf(user), false, clientData);
 					continue;
 				}
 			}
+			if (receivedText.startsWith(START_WITH_FILE)
+					&& clientData.getData().length < 487 + 4) {
 
-			if (clientData.getRawData() != null) {
 				user.updateLastResponse();
-				byte[] data = clientData.getRawData();
-				byte[] newArr = new byte[4 + user.getUserName().length() + 1
+				byte[] data = clientData.getData();
+				byte[] newArr = new byte[user.getUserName().length() + 1
 						+ data.length + 1];
 				int i = 0;
 				byte[] dataPrefixStr = String.format(Locale.ENGLISH, "FIL:%s:",
-						user.getUserName()).getBytes(UDPserver.CHARACTER_SET);
+						user.getUserName()).getBytes(CHARACTER_SET);
 
 				for (i = 0; i < dataPrefixStr.length; ++i) {
 					newArr[i] = dataPrefixStr[i];
 				}
-				for (int j = 0; j < data.length; ++j, ++i) {
+				for (int j = 4; j < data.length; ++j, ++i) {
 					newArr[i] = data[j];
 				}
 				newArr[i] = (byte) ';';
-				clientData.setRawData(newArr);
+				clientData.setData(newArr);
 
 				System.out.printf(Locale.ENGLISH,
 						"user %s sent a file with size %d!%n", user.toString(),
@@ -220,18 +228,19 @@ public class ServerProgram {
 				continue;
 			}
 
-			if (!clientData.getData().matches(REGEX_MESSAGE)) {
+			if (!receivedText.matches(REGEX_MESSAGE)) {
 				System.out.printf(Locale.ENGLISH,
 						"user %s tried to send \"%s\"!%n", user.toString(),
-						clientData.getData());
+						receivedText);
 				continue;
 			}
 
 			System.out.printf(Locale.ENGLISH, "user %s, sent msg: \"%s\"%n",
-					user.toString(), clientData.getData());
+					user.toString(), receivedText);
 			user.updateLastResponse();
 			clientData.setData(String.format(Locale.ENGLISH, "MSG:%s:%s",
-					user.getUserName(), clientData.getData().substring(4)));
+					user.getUserName(), receivedText.substring(4)).getBytes(
+					CHARACTER_SET));
 			try {
 				broadcastToAllUsers(clientData);
 			} catch (IOException e) {
@@ -249,7 +258,7 @@ public class ServerProgram {
 				a_user.toString());
 
 		clientData.setData(String.format(Locale.ENGLISH, "IN:%s;",
-				a_user.getUserName()));
+				a_user.getUserName()).getBytes(CHARACTER_SET));
 		try {
 			broadcastToAllUsers(clientData);
 		} catch (IOException e) {
@@ -271,7 +280,7 @@ public class ServerProgram {
 		m_users.remove(a_index);
 
 		clientData.setData(String.format(Locale.ENGLISH, "OUT:%s;",
-				user.getUserName()));
+				user.getUserName()).getBytes(CHARACTER_SET));
 		try {
 			broadcastToAllUsers(clientData);
 		} catch (IOException e) {
@@ -328,7 +337,8 @@ public class ServerProgram {
 								--i;
 								continue;
 							}
-							userData = new UdpData(HEARTBEAT, lUser
+							userData = new UdpData(HEARTBEAT
+									.getBytes(CHARACTER_SET), lUser
 									.getIpAddress(), lUser.getPort());
 							try {
 								a_udpServer.send(userData);
